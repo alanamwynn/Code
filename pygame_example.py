@@ -1,7 +1,9 @@
 import pygame
 from pygame.time import Clock
 import math
-from random import randint
+from random import randint,random
+
+from vector import Vector
 
 def hex_to_rgb(hex_string):
     first = hex_string[:2]
@@ -27,83 +29,73 @@ height = 600
 width = 800
 screen = pygame.display.set_mode((width, height))
 x = int("F", 16)
+circle_size = 2*math.pi
 
 # Window title
 pygame.display.set_caption("Mistress Ada's Perfect Circle")
-#write a funct that takes a 6 chara string as hex code and returns a tuple of the rgb
-#can ask how to convert hexadecimal to rgb in py. don't ask CHATGPT to write this function
-# Loop until the user closes the window
 
 
 #make a ball Class constructor, attrs
 class Ball:
-    def __init__(self,x,y,radius,color):
+    def __init__(self,position,radius,color):
         self.color = color
-        self.x = x
-        self.y = y
+        self.position = position
         self.radius = radius
-        self.velocity_x = randint(-5,5)
-        self.velocity_y = randint(-5,5)
+        self.velocity = Vector(random() * circle_size, random() * 4) 
+        self.scream1 = pygame.mixer.Sound("alana-aaa.mp3")
     #draws a circle within the confinements of the screen. attrs: color, coordinates, and a radius
     def draw(self):
-        pygame.draw.circle(screen, self.color, (self.x, self.y), self.radius)
-        #update x,y based on velocity
-        #make the edge (not the center) of the balls hit the edge of the screen
+        pygame.draw.circle(screen, self.color, self.position.get_coords(), self.radius)
+
     #updates the position based on the old position + velocity
     def update(self):
         self.gravity()
-        self.x = self.x + self.velocity_x
-        self.y = self.y + self.velocity_y
-        self.bawl_velocity_set()
-    #Changes and sets the velocity times equals -1 to convert it to a negative number. Neg in Pygame goes up, not down.
-    #when the sum of x and the radius are greater than/equal to the width or when the subtraction
-    #of x from the radius is less than or equal to 0
-    def bawl_velocity_set(self):
-        if self.x + self.radius >= width or self.x - self.radius <= 0:
-            self.velocity_x *= -1
-            self.x += self.velocity_x
-        if self.y + self.radius >= height or self.y - self.radius <=0:
-            self.velocity_y *= -1
-            self.y += self.velocity_y
-#mess with the gravity method. see how it changes the behavior. switch back to next project afterwards
-#Modifies gravity based on the velocity of y
-    def gravity(self):
-        gravity = 1
-        self.velocity_y += gravity
+        self.position += self.velocity
+        self.bounce_off_wall()
 
-        #Make distance method to use with collision check
-    #Calculating the magnitude(distance) by squaring the result of the subtracted x vectors and adding the 
-    #squared result of the subtracted y vectors, squared by .5
+    def bounce_off_wall(self):
+        x,y = self.position.get_coords()
+        if x + self.radius >= width or x- self.radius <= 0:
+            self.velocity = self.velocity.reflect_over_y()
+        if y + self.radius >= height or y - self.radius <=0:
+            self.velocity = self.velocity.reflect_over_x()
+
+    def gravity(self):
+        #gravity is a vector. it points down
+        gravity = Vector(math.pi/2,1)
+        self.velocity += gravity
+
     def distance_check(self,other):
-        delta_vector_x = other.x - self.x
-        delta_vector_y = other.y - self.y
-        distance = (delta_vector_x)**2 + (delta_vector_y)**2
-        distance = distance**0.5
-        return distance
+        delta_vector = other.position - self.position
+        return delta_vector.get_magnitude()
+    
     #Checks if the distance between the two balls is equal to their combined radiuses to determine collision
     def collision_check(self,other):
-        if self.distance_check(other) <= self.radius + other.radius:
-            return True
-        else:
-            return False
-    #determines the angle of the balls based on the subtraction of both the position vectors, plugged into atan2
+        return self.distance_check(other) <= self.radius + other.radius
     def angle_check(self,other):
-        delta_vector_x = other.x - self.x
-        delta_vector_y = other.y - self.y
-        angle = math.atan2(delta_vector_y, delta_vector_x)
-        return angle
+        delta_vector = other.position - self.position
+        return delta_vector.get_direction()
     def angle_of_velocity(self):
-        return math.atan2(self.velocity_y, self.velocity_x)
-    
+        return self.velocity.get_direction()
+    def bounce_off(bawl,other_bawl):
+        normal_angle = bawl.angle_check(other_bawl) + math.pi/2
+        angle_of_velocity = bawl.angle_of_velocity()
+        angle_of_incidence = angle_of_velocity - normal_angle
+        new_velocity_angle = normal_angle - angle_of_incidence 
+        new_velocity = Vector(new_velocity_angle,bawl.velocity.get_magnitude())
+        bawl.velocity = new_velocity
+
 
 max_radius = 100
 bawls = []
 
 #Create a number of balls within the specified range and apply random attrs using randint
-for ball in range(2):
-   bawls.append(Ball(randint(max_radius,width - max_radius), randint(max_radius,height - max_radius), randint(0,max_radius), (randint(0,255), randint(0,255), randint(0,255))))
+for ball in range(6):
+   x = randint(max_radius,width - max_radius)
+   y = randint(max_radius,width - max_radius)
+   position = Vector.build_from_xy(x, y)
+   bawls.append(Ball(position, randint(0,max_radius), (randint(0,255), randint(0,255), randint(0,255))))
 
-    #randint might be helpful for generating random attr
 run = True
 while run:
     for event in pygame.event.get():
@@ -114,59 +106,34 @@ while run:
     screen.fill((125, 125, 125))
 
     #Does this update the ball's position?
-    for bawl in bawls:
+    for bawl_i in range(len(bawls)):
+        bawl = bawls[bawl_i]
         bawl.update()
         bawl.draw()
         #can I use angle_check below instead?
-        for other_bawl in bawls:
-            if bawl.x == other_bawl.x and bawl.y == other_bawl.y:
-                continue
-            
-            # bawls_in_sim = []
-            # collision_update_needed = []
-            #Detect collisions and mark balls for update
-            # for i,bawls in enumerate(bawls_in_sim):
-            #     for other_bawl in bawls_in_sim[i+1:]:
-            #         if bawl.collision_check(other_bawl):
-            #             collision_update_needed.append(bawl,other_bawl)
-            # for bawl,other_bawl in collision_update_needed:
-            #     bawl.bawl_velocity_set(other_bawl)
-            # collision_update_needed.clear()
+        for other_bawl_i in range(bawl_i + 1, len(bawls)):
+            other_bawl = bawls[other_bawl_i]
 
-            #if the balls collide, change the color of both bawls. 
+            #if the balls collide, they change colors, yell, and bounce
             if bawl.collision_check(other_bawl):
                 bawl.color = (randint(0,255), randint(0,255), randint(0,255))
-                #
-                angle = bawl.angle_check(other_bawl)
-                # angle_of_reflection = angle + math.pi/2 
-                angle_of_velocity = bawl.angle_of_velocity()
-                angle_of_incidence = angle_of_velocity - angle
-                new_velocity_angle = angle - angle_of_incidence 
-                new_velocity = make_vector(new_velocity_angle, math.sqrt((bawl.velocity_x ** 2) + (bawl.velocity_y ** 2)))
-                bawl.velocity_x, bawl.velocity_y = new_velocity
+                other_bawl.color = (randint(0,255), randint(0,255), randint(0,255))
+                bawl.scream1.play()
+                other_bawl.scream1.play()
+                bawl.bounce_off(other_bawl)
+                other_bawl.bounce_off(bawl)
+
                 overlap = bawl.distance_check(other_bawl) - (bawl.radius + other_bawl.radius)
                 if overlap < 0:
-                    # Calculate the normal vector components
-                    normal_x = bawl.x - other_bawl.x
-                    normal_y = bawl.y - other_bawl.y
+                    normal = other_bawl.position - bawl.position
+                    normal.magnitude = 1
                     
-                    # Normalize the normal vector
-                    normal_length = math.sqrt(normal_x**2 + normal_y**2)
-                    normal_x /= normal_length
-                    normal_y /= normal_length
-                    
-                    # Push the balls apart by half the overlap distance along the normal vector
-                    push_distance = overlap
-                    bawl.x -= normal_x * push_distance
-                    bawl.y -= normal_y * push_distance
-                    other_bawl.x += normal_x * push_distance
-                    other_bawl.y += normal_y * push_distance
+                    push_distance = overlap * 0.5
+                    bawl.position += normal.scale(push_distance)
+                    other_bawl.position -= normal.scale(push_distance)
 
                 
                 
-                
-                
-
     # Update the screen
     pygame.display.update()
     clock.tick(30)
