@@ -2,8 +2,9 @@ import pygame
 from pygame.time import Clock
 import math
 from random import randint,random
-
+from ball import Ball
 from vector import Vector
+
 
 def hex_to_rgb(hex_string):
     first = hex_string[:2]
@@ -20,6 +21,16 @@ def angle_to_coord(angle, distance):
 def make_vector(angle, distance):
     return distance * math.cos(angle), distance * math.sin(angle)
 
+# Makes a random color using fixed rgb values if provided, otherwise random
+def random_color(red=None, green=None, blue=None):
+    if red is None:
+        red = randint(0, 255)
+    if green is None:
+        green = randint(0, 255)
+    if blue is None:
+        blue = randint(0, 255)
+    return (red, green, blue)
+
 # Initialize Pygame
 pygame.init()
 clock = Clock()
@@ -33,57 +44,6 @@ circle_size = 2*math.pi
 
 # Window title
 pygame.display.set_caption("Mistress Ada's Perfect Circle")
-
-
-#make a ball Class constructor, attrs
-class Ball:
-    def __init__(self,position,radius,color):
-        self.color = color
-        self.position = position
-        self.radius = radius
-        self.velocity = Vector(random() * circle_size, random() * 4) 
-        self.scream1 = pygame.mixer.Sound("alana-aaa.mp3")
-    #draws a circle within the confinements of the screen. attrs: color, coordinates, and a radius
-    def draw(self):
-        pygame.draw.circle(screen, self.color, self.position.get_coords(), self.radius)
-
-    #updates the position based on the old position + velocity
-    def update(self):
-        self.gravity()
-        self.position += self.velocity
-        self.bounce_off_wall()
-
-    def bounce_off_wall(self):
-        x,y = self.position.get_coords()
-        if x + self.radius >= width or x- self.radius <= 0:
-            self.velocity = self.velocity.reflect_over_y()
-        if y + self.radius >= height or y - self.radius <=0:
-            self.velocity = self.velocity.reflect_over_x()
-
-    def gravity(self):
-        #gravity is a vector. it points down
-        gravity = Vector(math.pi/2,1)
-        self.velocity += gravity
-
-    def distance_check(self,other):
-        delta_vector = other.position - self.position
-        return delta_vector.get_magnitude()
-    
-    #Checks if the distance between the two balls is equal to their combined radiuses to determine collision
-    def collision_check(self,other):
-        return self.distance_check(other) <= self.radius + other.radius
-    def angle_check(self,other):
-        delta_vector = other.position - self.position
-        return delta_vector.get_direction()
-    def angle_of_velocity(self):
-        return self.velocity.get_direction()
-    def bounce_off(bawl,other_bawl):
-        normal_angle = bawl.angle_check(other_bawl) + math.pi/2
-        angle_of_velocity = bawl.angle_of_velocity()
-        angle_of_incidence = angle_of_velocity - normal_angle
-        new_velocity_angle = normal_angle - angle_of_incidence 
-        new_velocity = Vector(new_velocity_angle,bawl.velocity.get_magnitude())
-        bawl.velocity = new_velocity
 
 
 max_radius = 100
@@ -106,13 +66,17 @@ while run:
     screen.fill((125, 125, 125))
 
     #Does this update the ball's position?
+    balls_to_add = []
+    balls_to_remove = []
     for bawl_i in range(len(bawls)):
         bawl = bawls[bawl_i]
         bawl.update()
-        bawl.draw()
-        #can I use angle_check below instead?
+        bawl.draw(screen)
+        
         for other_bawl_i in range(bawl_i + 1, len(bawls)):
             other_bawl = bawls[other_bawl_i]
+            bawl.ball_attraction(other_bawl)
+            other_bawl.ball_attraction(bawl)
 
             #if the balls collide, they change colors, yell, and bounce
             if bawl.collision_check(other_bawl):
@@ -122,16 +86,37 @@ while run:
                 other_bawl.scream1.play()
                 bawl.bounce_off(other_bawl)
                 other_bawl.bounce_off(bawl)
+                #Break two balls into 4 smaller balls half the size if they collide
+                #The original balls are removed from the list and the new balls are added to the list
+                if bawl.radius >= 10:
+                    new_ball, new_ball2 = bawl.split()
+                    balls_to_add.append(new_ball)
+                    balls_to_add.append(new_ball2)
+                    balls_to_remove.append(bawl)
+                    break
+                if other_bawl.radius >= 10:
+                    new_ball, new_ball2 = other_bawl.split()
+                    balls_to_add.append(new_ball)
+                    balls_to_add.append(new_ball2)
+                    balls_to_remove.append(other_bawl)
+                    break
+                #if they're small enough they combine
+                if bawl.radius <= 10 and other_bawl.radius <= 10:
+                    bawl.radius += other_bawl.radius
+                    balls_to_remove.append(other_bawl)
+                    break
+                #make gravity proportional to the size of the ball
 
-                overlap = bawl.distance_check(other_bawl) - (bawl.radius + other_bawl.radius)
-                if overlap < 0:
-                    normal = other_bawl.position - bawl.position
-                    normal.magnitude = 1
-                    
-                    push_distance = overlap * 0.5
-                    bawl.position += normal.scale(push_distance)
-                    other_bawl.position -= normal.scale(push_distance)
-
+    # #After the while loop, new balls that are a result of collision are added to the list of balls to add
+    # #their original balls are added to balls to remove
+    for ball in balls_to_add:
+        bawls.append(ball)
+    for ball in balls_to_remove:
+        if ball in bawls:
+            bawls.remove(ball)
+    print(len(bawls))
+    
+                
                 
                 
     # Update the screen
@@ -145,7 +130,6 @@ pygame.quit()
 #More Ideas for this Pygame:
 
     # bouncing off eachother that mimics irl physics
-    # gravity attracting to each other
     # repulsion
     # spring-like (Parabolic force curve)
     # sudden elimination or combination by contact (agario)

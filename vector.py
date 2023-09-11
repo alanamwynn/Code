@@ -28,11 +28,14 @@ class Vector:
             new_y = self_y + other_y
             new_x = self_x + other_x
         else: # adding a scalar
-            new_y = self.y + other
-            new_x = self.x + other
+            new_y = self_y + other
+            new_x = self_x + other
         return Vector.build_from_xy(new_x, new_y)
     def __sub__(self, other):
-        return self + (other.scale(-1))
+        if type(other) == Vector:
+            return self + (other.scale(-1))
+        else:
+            return self + (-other)
     # Scalar below    
     def scale(self,other):
         return Vector(self.direction,self.magnitude * other)
