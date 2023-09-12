@@ -12,7 +12,7 @@ class Ball:
         self.position = position
         self.radius = radius
         self.velocity = Vector(random() * 2 * math.pi, random() * 4) 
-        self.scream1 = pygame.mixer.Sound("alana-aaa.mp3")
+        self.scream1 = pygame.mixer.Sound("./alana-aaa.mp3")
     #draws a circle within the confinements of the screen. attrs: color, coordinates, and a radius
     def draw(self,screen):
         pygame.draw.circle(screen, self.color, self.position.get_coords(), self.radius)
@@ -84,5 +84,8 @@ class Ball:
     def split(self):
         new_ball = Ball(self.position + self.radius/2, self.radius/2, self.color)
         new_ball2 = Ball(self.position - self.radius/2, self.radius/2, self.color)
+        #Once the balls are split, they repell each other for a few frames
+        new_ball.velocity = new_ball.velocity.scale(10)
         new_ball2.velocity = new_ball.velocity.scale(-1)
+        
         return new_ball, new_ball2
