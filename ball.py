@@ -3,7 +3,7 @@ from random import randint
 import pygame
 import math
 from vector import Vector
-from constants import WIDTH, HEIGHT
+from constants import WIDTH, HEIGHT, GRAVITY_STRENGTH, MIN_BALL_RADIUS
 
 
 class Ball:
@@ -23,7 +23,11 @@ class Ball:
         self.position += self.velocity
         self.bounce_off_wall()
 
-    #
+    def scream(self):
+        channel = pygame.mixer.find_channel()
+        if channel:
+            channel.play(self.scream1)
+
     def bounce_off_wall(self):
         x,y = self.position.get_coords()
         if x + self.radius >= WIDTH or x- self.radius <= 0:
@@ -56,8 +60,15 @@ class Ball:
     #Creates gravity to attract the balls to each other
     def ball_attraction(self,other):
         delta_vector = other.position - self.position
-        delta_vector.magnitude = 1
-        self.velocity += delta_vector.scale(0.1)
+        delta_vector.magnitude = other.ball_mass() / self.distance_check(other) ** 1
+        # print(delta_vector.magnitude)
+        self.velocity += delta_vector.scale(GRAVITY_STRENGTH)
+    
+    def ball_mass(self):
+        return self.radius ** 2 * math.pi
+    
+    
+
     
     #Checks if the distance between the two balls is equal to their combined radiuses to determine collision
     def collision_check(self,other):

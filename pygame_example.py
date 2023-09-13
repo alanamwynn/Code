@@ -5,6 +5,7 @@ from random import randint,random
 from ball import Ball
 from vector import Vector
 import os
+from constants import WIDTH, HEIGHT, GRAVITY_STRENGTH, MIN_BALL_RADIUS, MIN_SPLIT_SPEED
 
 def hex_to_rgb(hex_string):
     first = hex_string[:2]
@@ -31,14 +32,14 @@ def random_color(red=None, green=None, blue=None):
         blue = randint(0, 255)
     return (red, green, blue)
 
+
 # Initialize Pygame
 pygame.init()
 clock = Clock()
 
 # Create a window of 800x600
-height = 600
-width = 800
-screen = pygame.display.set_mode((width, height))
+screen = pygame.display.set_mode((WIDTH, HEIGHT))
+pygame.mixer.set_num_channels(100)
 x = int("F", 16)
 circle_size = 2*math.pi
 
@@ -51,8 +52,8 @@ bawls = []
 
 #Create a number of balls within the specified range and apply random attrs using randint
 for ball in range(6):
-   x = randint(max_radius,width - max_radius)
-   y = randint(max_radius,width - max_radius)
+   x = randint(max_radius,WIDTH - max_radius)
+   y = randint(max_radius,HEIGHT - max_radius)
    position = Vector.build_from_xy(x, y)
    bawls.append(Ball(position, randint(0,max_radius), (randint(0,255), randint(0,255), randint(0,255))))
 
@@ -83,43 +84,44 @@ while run:
 
             #the child balls manitain the same color as the parent ball initially/rest of sim/end color randomization post collision?
 
-            #if the balls collide, they change colors, yell, and bounce
+                #if the balls collide, they change colors, yell, and bounce
                 if bawl.collision_check(other_bawl):
-                    #inverse attraction with a pushback 
-                    bawl.scream1.play()
-                    other_bawl.scream1.play()
+
+                    bawl.scream()
+                    other_bawl.scream()
                     bawl.bounce_off(other_bawl)  
                     other_bawl.bounce_off(bawl)
                     #If two balls collide, they each get split into 2 smaller balls if they are big enough
                     #The original balls are queued for removal and the new balls are queued for addition
-                    if bawl.radius >= 10:
-                        new_ball, new_ball2 = bawl.split()
-                        balls_to_add.append(new_ball)
-                        balls_to_add.append(new_ball2)
-                        balls_to_remove.append(bawl)
-                        break
-                    if other_bawl.radius >= 10:
-                        new_ball, new_ball2 = other_bawl.split()
-                        balls_to_add.append(new_ball)
-                        balls_to_add.append(new_ball2)
-                        balls_to_remove.append(other_bawl)
-                        break
+                    if bawl.velocity.magnitude > MIN_SPLIT_SPEED or other_bawl.velocity.magnitude > MIN_SPLIT_SPEED:
+                        if bawl.radius > MIN_BALL_RADIUS * 2:
+                            if other_bawl.velocity.magnitude > bawl.velocity.magnitude:
+                                new_ball, new_ball2 = bawl.split()
+                                balls_to_add.append(new_ball)
+                                balls_to_add.append(new_ball2)
+                                balls_to_remove.append(bawl)
+                        if other_bawl.radius > MIN_BALL_RADIUS *2:
+                            if bawl.velocity.magnitude > other_bawl.velocity.magnitude:
+                                new_ball, new_ball2 = other_bawl.split()
+                                balls_to_add.append(new_ball)
+                                balls_to_add.append(new_ball2)
+                                balls_to_remove.append(other_bawl)
+                    else:   
                     #if the original 2 balls are small enough, they will combine into a bigger ball
-                    if bawl.radius <= 10 and other_bawl.radius <= 10:
-                        bawl.radius += other_bawl.radius
-                        if bawl.radius > other_bawl.radius:
-                            bawl.color = bawl.color
-                        else:
-                            bawl.color = other_bawl.color
-
-                        balls_to_remove.append(other_bawl)
-                        break
+                        if bawl.ball_mass() > other_bawl.ball_mass():
+                            bawl.radius += other_bawl.radius
+                            balls_to_remove.append(other_bawl)
+                        if other_bawl.ball_mass() > bawl.ball_mass():
+                            other_bawl.radius += bawl.radius
+                            balls_to_remove.append(bawl)
+                        
                 #make attraction proportional to the size of the ball
 
     # #After the while loop, new balls that are a result of collision are added to the list of balls to add
     # #their original balls are added to balls to remove
     for ball in balls_to_add:
         bawls.append(ball)
+        ball.color = random_color()
     for ball in balls_to_remove:
         if ball in bawls:
             bawls.remove(ball)
